@@ -2,24 +2,23 @@
   (:require [clojure.data.xml :as xml])
   (:gen-class))
 
-(def name-key? #{"name" "name:fi"})
+(def name-key? #{"loc_name" "name" "name:fi"})
 
-(defn- detect [pred coll]
-  (some #(when (pred %) %) coll))
-
-(defn- find-name [el]
-  (when-let [name-tag (detect #(name-key? (:k (:attrs %))) (:content el))]
-    (:v (:attrs name-tag))))
+(defn- find-names [el]
+  (let [name-tags (filter #(name-key? (:k (:attrs %))) (:content el))]
+    (map #(:v (:attrs %)) name-tags)))
 
 (defn- add-way [mp el]
-  (if-let [name (find-name el)]
-    (assoc mp name "")
-    mp))
-
+  (reduce
+    #(assoc %1 %2 "")
+    mp
+    (find-names el)))
+    
 (defn- add-node [mp el]
-  (if-let [name (find-name el)]
-    (assoc mp name (str (:lon (:attrs el)) "," (:lat (:attrs el))))
-    mp))
+  (reduce
+    #(assoc %1 %2 (str (:lon (:attrs el)) "," (:lat (:attrs el))))
+    mp
+    (find-names el)))
 
 (defn -main
   "I don't do a whole lot."
