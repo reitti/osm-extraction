@@ -29,29 +29,61 @@
     :shop     [:*]
     :tourism  [:camp_site :caravan_site :chalet :guest_house :hostel :hotel :information :motel :museum :picnic_site :theme_park :zoo]
     :railway  [:station :tram_stop]
-    :place    [:locality]))
+    :place    [:locality]
+    :highway  [:trunk :trunk_link :primary :primary_link :secondary :secondary_link :tertiary :tertiary_link :living_street
+               :pedestrian :residential :unclassified :service :track :bus_guideway :raceway :road :path :footway
+               :cycleway :bridleway :steps]))
 
-(defn- interesting-node? [el]
+(defn- interesting-element? [el]
   (some interesting-tag? (filter #(= :tag (:tag %)) (:content el))))
 
 (defn- find-names [el]
   (let [name-tags (filter #(name-key? (:k (:attrs %))) (:content el))]
     (into #{} (map #(:v (:attrs %)) name-tags))))
 
+(defn- highway? [el]
+  (some #(= "highway" (:k (:attrs %))) (:content el)))
+
+(defn- polygon-center [latlons]
+  (let [n (count latlons)
+        latsum (reduce + (map #(Double/valueOf (:lat %)) latlons))
+        lonsum (reduce + (map #(Double/valueOf (:lon %)) latlons))]
+    {:lat (/ latsum n), :lon (/ lonsum n)}))
+
+(defn- polyline-center [latlons]
+  (nth latlons (int (/ (count latlons) 2))))
+
+(defn- center-point [mp el]
+  (let [node-refs (filter #(= :nd (:tag %)) (:content el))
+        node-ids (map #(:ref (:attrs %)) node-refs)
+        nodes (map mp node-ids)
+        latlons (filter #(and (:lat %) (:lon %)) (map :loc nodes))]
+    (if (= (first latlons) (last latlons))
+        (polygon-center latlons)
+        (polyline-center latlons))))
+
 (defn- add-way [mp el]
-  (assoc
-    mp
-    (:id (:attrs el))
-    {:names (find-names el), :loc ""}))
+  (if (interesting-element? el)
+    (assoc
+      mp
+      (:id (:attrs el))
+      {:interesting? true
+       :names (find-names el)
+       :loc (if (highway? el) nil (center-point mp el))})
+    mp))
 
 (defn- add-node [mp el]
-  (if (interesting-node? el)
-      (assoc 
-        mp
-        (:id (:attrs el))
-        {:names (find-names el)
-         :loc (str (:lon (:attrs el)) "," (:lat (:attrs el)))})
-      mp))
+  (assoc 
+    mp
+    (:id (:attrs el))
+    {:interesting? (interesting-element? el)
+     :names (find-names el)
+     :loc (select-keys (:attrs el) [:lon :lat])}))
+
+(defn- loc-string [{:keys [lon lat]}]
+  (if (and lon lat)
+    (str lon "," lat)
+    ""))
 
 (defn -main [& args]
   (let [all (reduce
@@ -66,6 +98,6 @@
                   (fn [mp {:keys [names loc]}]
                     (reduce #(assoc %1 %2 loc) mp names))
                   {}
-                  (vals all))]
+                  (filter :interesting? (vals all)))]
     (doseq [[name loc] by-name]
-      (println (str name "|" loc)))))
+      (println (str name "|" (loc-string loc))))))
