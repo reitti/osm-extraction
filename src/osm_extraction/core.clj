@@ -36,20 +36,21 @@
 
 (defn- find-names [el]
   (let [name-tags (filter #(name-key? (:k (:attrs %))) (:content el))]
-    (map #(:v (:attrs %)) name-tags)))
+    (into #{} (map #(:v (:attrs %)) name-tags))))
 
 (defn- add-way [mp el]
-  (reduce
-    #(assoc %1 %2 "")
+  (assoc
     mp
-    (find-names el)))
+    (:id (:attrs el))
+    {:names (find-names el), :loc ""}))
 
 (defn- add-node [mp el]
   (if (interesting-node? el)
-      (reduce
-        #(assoc %1 %2 (str (:lon (:attrs el)) "," (:lat (:attrs el))))
+      (assoc 
         mp
-        (find-names el))
+        (:id (:attrs el))
+        {:names (find-names el)
+         :loc (str (:lon (:attrs el)) "," (:lat (:attrs el)))})
       mp))
 
 (defn -main [& args]
@@ -60,6 +61,11 @@
                   :node (add-node res el)
                   res))
               {}
-              (:content (xml/parse *in*)))]
-    (doseq [[k v] all]
-      (println (str k "|" v)))))
+              (:content (xml/parse *in*)))
+        by-name (reduce
+                  (fn [mp {:keys [names loc]}]
+                    (reduce #(assoc %1 %2 loc) mp names))
+                  {}
+                  (vals all))]
+    (doseq [[name loc] by-name]
+      (println (str name "|" loc)))))
