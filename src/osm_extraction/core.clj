@@ -28,7 +28,7 @@
     :sport    [:*]
     :shop     [:*]
     :tourism  [:camp_site :caravan_site :chalet :guest_house :hostel :hotel :information :motel :museum :picnic_site :theme_park :zoo]
-    :railway  [:station :tram_stop]
+    :railway  [:station]
     :building [:*]
     :place    [:locality]
     :highway  [:trunk :trunk_link :primary :primary_link :secondary :secondary_link :tertiary :tertiary_link :living_street
